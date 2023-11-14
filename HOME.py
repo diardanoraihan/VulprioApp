@@ -10,7 +10,7 @@ st.sidebar.image("./images/TSDN_logo.png", use_column_width=True)
 st.markdown(
 """
 # Vulprio 1.0 - *Vulnerability Detection and Prioritization App*
-Web app pendeteksi kerentanan suatu situs dan pemberi rekomendasi kerentanan berdasarkan prioritas. [Klik di sini untuk menjalankan App](/Vulprio_App/)
+Aplikasi web untuk mendeteksi kerentanan situs dan memprioritaskan temuan yang perlu segera diatasi. [Klik di sini untuk menjalankan App](/Vulprio_App/)
 
 ---
 ### Latar Belakang
