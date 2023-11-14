@@ -38,7 +38,7 @@ with col2:
   """)
 
 with col3:
-  st.image('./images/TSDN_logo.png')
+  st.image('./images/Avektive_Diardano Raihan.png', width=280)
   st.markdown(
   """
   #### Diardano Raihan
