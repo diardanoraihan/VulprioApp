@@ -1,3 +1,5 @@
 vulprio_env/
 .DS_Store
 __pycache__/
+.ipynb_checkpoints/
+.jovianrc
