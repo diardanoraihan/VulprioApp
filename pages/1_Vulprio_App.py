@@ -9,14 +9,14 @@ st.set_page_config(page_title="Vulprio App",
 
 # ---- Define Empty Dictionaries ----
 manualData = {'host': [],
-              'public_access': [],
-              'pii': [],
+              'akses_publik': [],
+              'data_pribadi': [],
               'importance': [],
               'urgency': []}
 
 uploadedData = {'host': [],
-                'public_access': [],
-                'pii': [],
+                'akses_publik': [],
+                'data_pribadi': [],
                 'importance': [],
                 'urgency': []}
 
@@ -68,17 +68,17 @@ for num in range(1, st.session_state["manual_input"] + 1):
       st.write('Situs yang hendak dideteksi kerentanan: ', host)
 
   with col2:
-    public_access = st.selectbox(f'Akses Publik #{num}', options=['Ya', 'Tidak'], index=None)
-    if public_access == 'Ya':
+    akses_publik = st.selectbox(f'Akses Publik #{num}', options=['Ya', 'Tidak'], index=None)
+    if akses_publik == 'Ya':
       st.success(f'Situs #{num} memiliki akses ke publik')
-    elif public_access == 'Tidak':
+    elif akses_publik == 'Tidak':
       st.error(f'Situs #{num} tidak memiliki akses ke publik')
 
   with col3:
-    pii = st.selectbox(f'Informasi Identifikasi Pribadi #{num}', options = ['Ya', 'Tidak'], index=None)
-    if pii == 'Ya':
+    data_pribadi = st.selectbox(f'Informasi Data Pribadi #{num}', options = ['Ya', 'Tidak'], index=None)
+    if data_pribadi == 'Ya':
       st.success(f'Situs #{num} memiliki informasi data pribadi terpampang pada halaman websitenya')
-    elif pii == 'Tidak':
+    elif data_pribadi == 'Tidak':
       st.error(f'Situs #{num} tidak memiliki informasi data pribadi terpampang pada halaman websitenya')
 
   with col4:
@@ -96,8 +96,8 @@ for num in range(1, st.session_state["manual_input"] + 1):
       st.error(f'Situs #{num} tidak memiliki urgensi tinggi')
 
   manualData['host'].append(host)
-  manualData['public_access'].append(public_access)
-  manualData['pii'].append(pii)
+  manualData['akses_publik'].append(akses_publik)
+  manualData['data_pribadi'].append(data_pribadi)
   manualData['importance'].append(importance)
   manualData['urgency'].append(urgency)
   
