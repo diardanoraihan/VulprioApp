@@ -4,12 +4,15 @@ import streamlit as st
 st.set_page_config(page_title="About",
                    layout="wide",
                    page_icon='./images/about.png')
+st.sidebar.header('')
 st.sidebar.image("./images/TSDN_logo.png", use_column_width=True)
 st.markdown(
 """
 # About
 
 Aplikasi **Vulprio 1.0** ini dikembangkan oleh **Tim Avektive** yang beranggotakan 4 orang dalam rangka mengikuti **Turnamen Sains Data Nasional 2023**
+
+---
 """)
 
 # Content
@@ -38,7 +41,7 @@ with col2:
   """)
 
 with col3:
-  st.image('./images/Avektive_Diardano Raihan.png', width=280)
+  st.image('./images/Avektive_Diardano Raihan.png', width=265)
   st.markdown(
   """
   #### Diardano Raihan
@@ -49,12 +52,24 @@ with col3:
   """)
 
 with col4:
-  st.image('./images/TSDN_logo.png')
+  st.image('./images/Avektive_Syaiful Andy.jpeg', width = 250)
   st.markdown(
   """
   #### Syaiful Andy
   
   - [Email](mailto:syaifulandy@gmail.com)
-  - [LinkedIn](https://www.linkedin.com/in/diardanoraihan/)   
+  - [LinkedIn](https://www.linkedin.com/in/syaiful-andy/)   
   - [Github]()        
   """)
+
+
+
+# ---- HIDE STREAMLIT STYLE ----
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
