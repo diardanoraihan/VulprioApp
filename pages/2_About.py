@@ -19,25 +19,23 @@ Aplikasi **Vulprio 1.0** ini dikembangkan oleh **Tim Avektive** yang beranggotak
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-  st.image('./images/TSDN_logo.png')
+  st.image('./images/Avektive_Aditya Rachman Putra.png', width=270)
   st.markdown(
   """
   #### Aditya Rachman Putra
   
   - [Email](mailto:adityarputra@gmail.com)
-  - [LinkedIn](https://www.linkedin.com/in/diardanoraihan/)   
-  - [Github]()        
+  - [LinkedIn](https://www.linkedin.com/in/adityairp)        
   """)
 
 with col2:
-  st.image('./images/TSDN_logo.png')
+  st.image('./images/Avektive_Bakti Satria Adhityatama.png', width=210)
   st.markdown(
   """
   #### Bakti Satria Adhityatama
   
   - [Email](mailto:bakti.satria.a@gmail.com)
-  - [LinkedIn](https://www.linkedin.com/in/diardanoraihan/)   
-  - [Github]()        
+  - [LinkedIn](https://www.linkedin.com/in/baktistr/)          
   """)
 
 with col3:
@@ -47,8 +45,7 @@ with col3:
   #### Diardano Raihan
   
   - [Email](mailto:diardano@gmail.com)
-  - [LinkedIn](https://www.linkedin.com/in/diardanoraihan/)   
-  - [Github]()        
+  - [LinkedIn](https://www.linkedin.com/in/diardanoraihan/)        
   """)
 
 with col4:
@@ -58,8 +55,7 @@ with col4:
   #### Syaiful Andy
   
   - [Email](mailto:syaifulandy@gmail.com)
-  - [LinkedIn](https://www.linkedin.com/in/syaiful-andy/)   
-  - [Github]()        
+  - [LinkedIn](https://www.linkedin.com/in/syaiful-andy/)         
   """)
 
 
