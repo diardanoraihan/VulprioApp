@@ -1,7 +1,7 @@
 # VulprioApp
 Risk Based Vulnerability Prioritization App using Machine Learning Model
 
-## Packages Installation on Mac
+## Packages Installation on Mac/Windows
 - Create your python virtual environment
 
 `pip3 install virtualenv`
