@@ -9,7 +9,7 @@ import os
 
 # ---- Set Page Configuration ----
 st.set_page_config(page_title="Vulprio App",
-                   layout="wide",
+                   layout="centered",
                    page_icon='./images/app.png')
 
 # ---- Define Empty Dictionaries ----
