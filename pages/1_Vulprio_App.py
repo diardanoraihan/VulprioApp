@@ -135,6 +135,8 @@ st.markdown("---")
 if (runApp or st.session_state['run_app']):
 
   # ---- Read Input Data ----
+  # ---- Input Data Preprocessing -----
+  # Remove rows with null values in the 'Host' column
   input_df1 = pd.DataFrame(uploadedData)
   input_df1 = input_df1[(input_df1['host'] != '') & (input_df1['host'] != None)]
   input_df2 = pd.DataFrame(manualData)
@@ -142,10 +144,9 @@ if (runApp or st.session_state['run_app']):
   df_input = pd.concat([input_df1, input_df2], ignore_index=True)
   df_input.drop_duplicates(subset=['host', 'akses_publik', 'data_pribadi', 'klasifikasi_data', 'potensi_kerugian', 'jumlah_pengguna'], inplace=True)
   if df_input.shape[0] != 0:
-
-    # ---- Input Data Preprocessing -----
-    # Remove rows with null values in the 'Host' column
-    # df_input = df_input[(df_input['host'] != '') & (df_input['host'] != None)]
+    
+    st.markdown("## Input Data")
+    st.dataframe(df_input)
 
     # ---- Read Database ----
     df_base = pd.read_csv('dataset/dataset.csv')
@@ -195,7 +196,6 @@ if (runApp or st.session_state['run_app']):
                 7 ASC
               """).df()
     
-    st.dataframe(df_prep)
     if df_prep.empty:
       st.warning("Tidak ada kerentanan yang berhasil ditemukan!")
     else:
@@ -214,7 +214,6 @@ if (runApp or st.session_state['run_app']):
       # Feature 4: Feature Standardization (Normalization)
       columns = ['host', 'cve_id', 'prio_score']
       df_model = df_prep[columns]
-      st.dataframe(df_model)
       df_model.set_index(['host', 'cve_id'], inplace=True)
       standardize = MinMaxScaler()
       df_std = pd.DataFrame(standardize.fit_transform(df_model))
@@ -226,10 +225,8 @@ if (runApp or st.session_state['run_app']):
       df_prep['cluster'] = [str(cluster) for cluster in kmeans.labels_] # Get cluster assignments
 
       # ---- Output Result ----
-      st.markdown("## Overview")
-      st.dataframe(df_input)
+      st.markdown("## Hasil: Overview")
       df_result = df_input.join(df_prep[['host', 'cve_id', 'epss', 'cvss', 'ransomware', 'cisa_kev', 'risk_score', 'asset_score', 'prio_score', 'cluster']].set_index('host'), on = 'host').reset_index(drop=True).sort_values('cluster')
-      st.dataframe(df_result)
       
       # ---- Query to Database ----
       df_result_stat = db.sql(f"""
@@ -277,7 +274,7 @@ if (runApp or st.session_state['run_app']):
       cl_3.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].asset_score_avg, 1))
       cl_3.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].prio_score_avg, 1))
       
-      st.markdown("## Analisis ")
+      st.markdown("## Hasil: Analisis ")
       filter_1, filter_2 = st.columns(2)
       cluster = filter_1.multiselect(label='Pilih Cluster:', options=df_result.cluster.unique(), default=df_result.cluster.unique())
       df_selection = df_result.query(
@@ -353,7 +350,7 @@ if (runApp or st.session_state['run_app']):
       with st.expander('Output details:'):
         st.dataframe(df_selection)
       
-      st.markdown("## Rekomendasi")
+      st.markdown("## Hasil: Rekomendasi")
       cluster_prio = df_result_stat[df_result_stat['rank'] == 1]['cluster'].to_list()[0]
       st.warning(f":warning: :warning: Berdasarkan hasil analisis, kami merekomendasikan untuk melakukan perbaikan segera pada hasil temuan kerentanan di CLUSTER {cluster_prio} :warning: :warning:")
   else:
