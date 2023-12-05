@@ -1,6 +1,5 @@
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
-import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 import duckdb as db
@@ -38,7 +37,9 @@ st.markdown(
 
 # ---- Sidebar Addons ----
 st.sidebar.header('')
-st.sidebar.image("./images/TSDN_logo.png", use_column_width=True)
+st.sidebar.header('')
+st.sidebar.header('')
+st.sidebar.image("./images/TSDN_logo.png", use_column_width='auto')
 
 # ---- Input Data - Upload file Feature ----
 uploaded_file = st.file_uploader('Choose a File: ') # Upload a file 'media/mountains.webp'
@@ -135,14 +136,16 @@ if (runApp or st.session_state['run_app']):
 
   # ---- Read Input Data ----
   input_df1 = pd.DataFrame(uploadedData)
+  input_df1 = input_df1[(input_df1['host'] != '') & (input_df1['host'] != None)]
   input_df2 = pd.DataFrame(manualData)
+  input_df2 = input_df2[(input_df2['host'] != '') & (input_df2['host'] != None)]
   df_input = pd.concat([input_df1, input_df2], ignore_index=True)
-  input_1, input_2 = st.columns(2)
+  df_input.drop_duplicates(subset=['host', 'akses_publik', 'data_pribadi', 'klasifikasi_data', 'potensi_kerugian', 'jumlah_pengguna'], inplace=True)
   if df_input.shape[0] != 0:
 
     # ---- Input Data Preprocessing -----
-    # Remove rows with null values in the 'Age' column
-    df_input = df_input[(df_input['host'] != '') & (df_input['host'] != None)]
+    # Remove rows with null values in the 'Host' column
+    # df_input = df_input[(df_input['host'] != '') & (df_input['host'] != None)]
 
     # ---- Read Database ----
     df_base = pd.read_csv('dataset/dataset.csv')
@@ -191,159 +194,168 @@ if (runApp or st.session_state['run_app']):
                 1 ASC,
                 7 ASC
               """).df()
+    
+    st.dataframe(df_prep)
+    if df_prep.empty:
+      st.warning("Tidak ada kerentanan yang berhasil ditemukan!")
+    else:
+      # --- Feature Engineering ----
+      # Feature 1: Risk Score Calculation
+      df_prep['likelihood'] = (df_prep['epss'] + df_prep['ransomware'] + df_prep['cisa_kev']) * 100 / 3
+      df_prep['impact'] = df_prep['cvss'] * 10
+      df_prep['risk_score'] = (df_prep['likelihood'] + df_prep['impact']) / 2
 
-    # --- Feature Engineering ----
-    # Feature 1: Risk Score Calculation
-    df_prep['likelihood'] = (df_prep['epss'] + df_prep['ransomware'] + df_prep['cisa_kev']) * 100 / 3
-    df_prep['impact'] = df_prep['cvss'] * 10
-    df_prep['risk_score'] = (df_prep['likelihood'] + df_prep['impact']) / 2
+      # Feature 2: Asset Score Calculation
+      df_prep['asset_score'] = (df_prep['akses_publik'] + df_prep['data_pribadi'] + df_prep['klasifikasi_data'] + df_prep['potensi_kerugian'] + df_prep['jumlah_pengguna']) * 10
 
-    # Feature 2: Asset Score Calculation
-    df_prep['asset_score'] = (df_prep['akses_publik'] + df_prep['data_pribadi'] + df_prep['klasifikasi_data'] + df_prep['potensi_kerugian'] + df_prep['jumlah_pengguna']) * 10
+      # Feature 3: Priority Score Calculation
+      df_prep['prio_score'] = (df_prep['risk_score'] + df_prep['asset_score']) / 2
 
-    # Feature 3: Priority Score Calculation
-    df_prep['prio_score'] = (df_prep['risk_score'] + df_prep['asset_score']) / 2
+      # Feature 4: Feature Standardization (Normalization)
+      columns = ['host', 'cve_id', 'prio_score']
+      df_model = df_prep[columns]
+      st.dataframe(df_model)
+      df_model.set_index(['host', 'cve_id'], inplace=True)
+      standardize = MinMaxScaler()
+      df_std = pd.DataFrame(standardize.fit_transform(df_model))
 
-    # Feature 4: Feature Standardization (Normalization)
-    columns = ['host', 'cve_id', 'prio_score']
-    df_model = df_prep[columns]
-    df_model.set_index(['host', 'cve_id'], inplace=True)
-    standardize = MinMaxScaler()
-    df_std = pd.DataFrame(standardize.fit_transform(df_model))
+      # ---- Kmeans Modeling ----
+      k = 4 # Choose the number of clusters (k)
+      kmeans = KMeans(n_clusters=k, random_state=42) # Initialize the KMeans model
+      kmeans.fit(df_std) # Fit the model to the data
+      df_prep['cluster'] = [str(cluster) for cluster in kmeans.labels_] # Get cluster assignments
 
-    # ---- Kmeans Modeling ----
-    k = 4 # Choose the number of clusters (k)
-    kmeans = KMeans(n_clusters=k, random_state=42) # Initialize the KMeans model
-    kmeans.fit(df_std) # Fit the model to the data
-    df_prep['cluster'] = [str(cluster) for cluster in kmeans.labels_] # Get cluster assignments
+      # ---- Output Result ----
+      st.markdown("## Overview")
+      st.dataframe(df_input)
+      df_result = df_input.join(df_prep[['host', 'cve_id', 'epss', 'cvss', 'ransomware', 'cisa_kev', 'risk_score', 'asset_score', 'prio_score', 'cluster']].set_index('host'), on = 'host').reset_index(drop=True).sort_values('cluster')
+      st.dataframe(df_result)
+      
+      # ---- Query to Database ----
+      df_result_stat = db.sql(f"""
+                SELECT 
+                  cluster,
+                  COUNT(*) AS vul_count,
+                  COUNT(DISTINCT host) AS host_count,
+                  COUNT(DISTINCT cve_id) AS cve_count,
+                  AVG(risk_score) AS risk_score_avg,
+                  AVG(asset_score) AS asset_score_avg,
+                  AVG(prio_score) AS prio_score_avg 
+                FROM
+                  df_result
+                GROUP BY 
+                  1
+                """).df()
+      
+      
+      
+      df_result_stat['rank'] = df_result_stat['prio_score_avg'].rank(ascending=False)
+      
+      cl_0, cl_1, cl_2, cl_3 = st.columns(4)
+      
+      cl_0.markdown("#### Cluster 0")
+      cl_0.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '0'].vul_count)
+      cl_0.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].risk_score_avg, 1))
+      cl_0.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].asset_score_avg, 1))
+      cl_0.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].prio_score_avg, 1))
+      
+      cl_1.markdown("#### Cluster 1")
+      cl_1.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '1'].vul_count)
+      cl_1.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].risk_score_avg, 1))
+      cl_1.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].asset_score_avg, 1))
+      cl_1.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].prio_score_avg, 1))
 
-    # ---- Output Result ----
-    st.markdown("## Overview")
-    df_result = df_input.join(df_prep[['host', 'cve_id', 'epss', 'cvss', 'ransomware', 'cisa_kev', 'risk_score', 'asset_score', 'prio_score', 'cluster']].set_index('host'), on = 'host').reset_index(drop=True).sort_values('cluster')
-    
-    # ---- Query to Database ----
-    df_result_stat = db.sql(f"""
-              SELECT 
-                cluster,
-                COUNT(*) AS vul_count,
-                COUNT(DISTINCT host) AS host_count,
-                COUNT(DISTINCT cve_id) AS cve_count,
-                AVG(risk_score) AS risk_score_avg,
-                AVG(asset_score) AS asset_score_avg,
-                AVG(prio_score) AS prio_score_avg 
-              FROM
-                df_result
-              GROUP BY 
-                1
-              """).df()
-    
-    df_result_stat['rank'] = df_result_stat['prio_score_avg'].rank(ascending=False)
-    
-    cl_0, cl_1, cl_2, cl_3 = st.columns(4)
-    
-    cl_0.markdown("#### Cluster 0")
-    cl_0.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '0'].vul_count)
-    cl_0.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].risk_score_avg, 1))
-    cl_0.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].asset_score_avg, 1))
-    cl_0.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '0'].prio_score_avg, 1))
-    
-    cl_1.markdown("#### Cluster 1")
-    cl_1.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '1'].vul_count)
-    cl_1.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].risk_score_avg, 1))
-    cl_1.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].asset_score_avg, 1))
-    cl_1.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '1'].prio_score_avg, 1))
-
-    cl_2.markdown("#### Cluster 2")
-    cl_2.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '2'].vul_count)
-    cl_2.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].risk_score_avg, 1))
-    cl_2.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].asset_score_avg, 1))
-    cl_2.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].prio_score_avg, 1))
-    
-    cl_3.markdown("#### Cluster 3")
-    cl_3.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '3'].vul_count)
-    cl_3.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].risk_score_avg, 1))
-    cl_3.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].asset_score_avg, 1))
-    cl_3.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].prio_score_avg, 1))
-    
-    st.markdown("## Analisis ")
-    filter_1, filter_2 = st.columns(2)
-    cluster = filter_1.multiselect(label='Pilih Cluster:', options=df_result.cluster.unique(), default=df_result.cluster.unique())
-    df_selection = df_result.query(
-        "cluster == @cluster"
-    ).reset_index(drop=True)
-    
-    # Numeric Metric Visualization
-    # Univariate Kmeans Clustering Visualization
-    color_map = {'0': 'brown', '1': 'green', '2': 'blue', '3': 'orange'}
-    fig_1 = px.scatter(
-      data_frame=df_selection,
-      x='prio_score',
-      y=np.zeros(df_selection.shape[0]),
-      color = 'cluster',
-      color_discrete_map=color_map,
-      custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
-      )
-    fig_1.update_layout(
-      title='Cluster Temuan Kerentanan berdasarkan Skor Prioritas',
-      title_x=0.22,  # Horizontal center
-      title_y=0.95,    # Top
-      legend=dict(
-        x=0.65, 
-        y=1, 
-        traceorder='normal', 
-        orientation='h'
+      cl_2.markdown("#### Cluster 2")
+      cl_2.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '2'].vul_count)
+      cl_2.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].risk_score_avg, 1))
+      cl_2.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].asset_score_avg, 1))
+      cl_2.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '2'].prio_score_avg, 1))
+      
+      cl_3.markdown("#### Cluster 3")
+      cl_3.metric(label='Temuan Kerentanan', value=df_result_stat[df_result_stat['cluster'] == '3'].vul_count)
+      cl_3.metric(label='Rata" Risk Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].risk_score_avg, 1))
+      cl_3.metric(label='Rata" Asset Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].asset_score_avg, 1))
+      cl_3.metric(label='Rata" Priority Score', value=np.round(df_result_stat[df_result_stat['cluster'] == '3'].prio_score_avg, 1))
+      
+      st.markdown("## Analisis ")
+      filter_1, filter_2 = st.columns(2)
+      cluster = filter_1.multiselect(label='Pilih Cluster:', options=df_result.cluster.unique(), default=df_result.cluster.unique())
+      df_selection = df_result.query(
+          "cluster == @cluster"
+      ).reset_index(drop=True)
+      
+      # Numeric Metric Visualization
+      # Univariate Kmeans Clustering Visualization
+      color_map = {'0': 'brown', '1': 'green', '2': 'blue', '3': 'orange'}
+      fig_1 = px.scatter(
+        data_frame=df_selection,
+        x='prio_score',
+        y=np.zeros(df_selection.shape[0]),
+        color = 'cluster',
+        color_discrete_map=color_map,
+        custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
         )
-      )
-    fig_1.update_traces(
-      marker=dict(
-        size=12,
-        line=dict(
-          width=1
+      fig_1.update_layout(
+        title='Cluster Temuan Kerentanan berdasarkan Skor Prioritas',
+        title_x=0.22,  # Horizontal center
+        title_y=0.95,    # Top
+        legend=dict(
+          x=0.65, 
+          y=1, 
+          traceorder='normal', 
+          orientation='h'
           )
-        ),
-      hovertemplate="<br>".join([
-        "Cluster: %{customdata[0]}",
-        "Host: %{customdata[1]}",
-        "CVE ID: %{customdata[2]}",
-        "Priority Score: %{x:.1f}",
-        "Risk Score: %{customdata[3]:.1f}",
-        "Asset Score: %{customdata[4]:.1f}"])
-    )
-    fig_1.update_xaxes(title_text='Priority Score (0-100)')
-    fig_1.update_yaxes(title_text='Temuan Kerentanan', showticklabels = False)
-    st.plotly_chart(fig_1)
-
-    fig_2 = px.box(df_selection, x="cluster", y="prio_score", color="cluster",
-                notched=True, # used notched shape
-                title="Boxplot Cluster Temuan Kerentanan",
-                color_discrete_map=color_map,
-                custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
-                )
-    fig_2.update_layout(
-      title='Boxplot Cluster Temuan Kerentanan',
-      title_x=0.3,  # Horizontal center
-      title_y=0.95  # Top
+        )
+      fig_1.update_traces(
+        marker=dict(
+          size=12,
+          line=dict(
+            width=1
+            )
+          ),
+        hovertemplate="<br>".join([
+          "Cluster: %{customdata[0]}",
+          "Host: %{customdata[1]}",
+          "CVE ID: %{customdata[2]}",
+          "Priority Score: %{x:.1f}",
+          "Risk Score: %{customdata[3]:.1f}",
+          "Asset Score: %{customdata[4]:.1f}"])
       )
-    fig_2.update_traces(
-      hovertemplate="<br>".join([
-        "Cluster: %{customdata[0]}",
-        "Host: %{customdata[1]}",
-        "CVE ID: %{customdata[2]}",
-        "Priority Score: %{x:.1f}",
-        "Risk Score: %{customdata[3]:.1f}",
-        "Asset Score: %{customdata[4]:.1f}"])
-    )
-    fig_2.update_xaxes(title_text='Cluster', tickvals=[0, 1, 2, 3])
-    fig_2.update_yaxes(title_text='Priority Score (0-100)')
-    st.plotly_chart(fig_2)
+      fig_1.update_xaxes(title_text='Priority Score (0-100)')
+      fig_1.update_yaxes(title_text='Temuan Kerentanan', showticklabels = False)
+      st.plotly_chart(fig_1)
 
-    # Table Output
-    with st.expander('Output details:'):
-      st.dataframe(df_selection)
-    
-    st.markdown("## Rekomendasi")
-    cluster_prio = df_result_stat[df_result_stat['rank'] == 1]['cluster'].to_list()[0]
-    st.warning(f":warning: :warning: Berdasarkan hasil analisis, kami merekomendasikan untuk melakukan perbaikan segera pada hasil temuan kerentanan di CLUSTER {cluster_prio} :warning: :warning:")
+      fig_2 = px.box(df_selection, x="cluster", y="prio_score", color="cluster",
+                  notched=True, # used notched shape
+                  title="Boxplot Cluster Temuan Kerentanan",
+                  color_discrete_map=color_map,
+                  custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
+                  )
+      fig_2.update_layout(
+        title='Boxplot Cluster Temuan Kerentanan',
+        title_x=0.3,  # Horizontal center
+        title_y=0.95  # Top
+        )
+      fig_2.update_traces(
+        hovertemplate="<br>".join([
+          "Cluster: %{customdata[0]}",
+          "Host: %{customdata[1]}",
+          "CVE ID: %{customdata[2]}",
+          "Priority Score: %{x:.1f}",
+          "Risk Score: %{customdata[3]:.1f}",
+          "Asset Score: %{customdata[4]:.1f}"])
+      )
+      fig_2.update_xaxes(title_text='Cluster', tickvals=[0, 1, 2, 3])
+      fig_2.update_yaxes(title_text='Priority Score (0-100)')
+      st.plotly_chart(fig_2)
+
+      # Table Output
+      with st.expander('Output details:'):
+        st.dataframe(df_selection)
+      
+      st.markdown("## Rekomendasi")
+      cluster_prio = df_result_stat[df_result_stat['rank'] == 1]['cluster'].to_list()[0]
+      st.warning(f":warning: :warning: Berdasarkan hasil analisis, kami merekomendasikan untuk melakukan perbaikan segera pada hasil temuan kerentanan di CLUSTER {cluster_prio} :warning: :warning:")
   else:
     st.error(':warning: Tidak ada input data')
 
