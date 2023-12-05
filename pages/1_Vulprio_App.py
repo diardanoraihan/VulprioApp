@@ -1,5 +1,6 @@
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
+import plotly.graph_objects as go
 import plotly.express as px
 import streamlit as st
 import duckdb as db
@@ -274,25 +275,24 @@ if (runApp or st.session_state['run_app']):
     # Numeric Metric Visualization
 
     # Univariate Kmeans Clustering Visualization
-    viz_1, viz_2 = st.columns(2)
     color_map = {'0': 'brown', '1': 'green', '2': 'blue', '3': 'orange'}
     fig_1 = px.scatter(
       data_frame=df_selection,
-      x=np.zeros(df_selection.shape[0]),
-      y='prio_score',
+      x='prio_score',
+      y=np.zeros(df_selection.shape[0]),
       color = 'cluster',
-      color_discrete_map=color_map,
-      # hover_data=['host', 'cve_id'],
+      color_discrete_map=color_map
+      # hover_data=['cluster', 'host', 'cve_id', 'prio_score', 'risk_score', 'asset_score'],
       )
     fig_1.update_layout(
       title='Cluster Temuan Kerentanan berdasarkan Skor Prioritas',
-      title_x=0.25,  # Horizontal center
+      title_x=0.22,  # Horizontal center
       title_y=0.95,    # Top
       legend=dict(
-        x=0.8, 
+        x=0.65, 
         y=1, 
         traceorder='normal', 
-        orientation='v'
+        orientation='h'
         )
       )
     fig_1.update_traces(
@@ -301,36 +301,28 @@ if (runApp or st.session_state['run_app']):
         line=dict(
           width=1
           )
-        )
+        ),
+      customdata =np.stack((df_selection['host'], df_selection['cluster']), axis=-1),
+      hovertemplate='Host: %{custom_data[0]}<br>Host: %{host}<br>CVE ID: {cve_id}<br>Prio Score: {prio_score}<br>Risk Score: {risk_score}<br>Asset Score: {asset_score}'
       )
-    fig_1.update_xaxes(title_text='Cluster')
-    fig_1.update_yaxes(title_text='Priority Score (0-100)')
-    viz_1.plotly_chart(fig_1)
+    fig_1.update_xaxes(title_text='Priority Score (0-100)')
+    fig_1.update_yaxes(title_text='Temuan Kerentanan', showticklabels = False)
+    st.plotly_chart(fig_1)
 
-    fig_2 = px.box(
-      x=df_selection['cluster'],
-      y=df_selection['prio_score'],
-      labels={'y': 'Values'},
-      title='Boxplot Example',
-      boxmode='group', 
-      color = df_selection['cluster'],
-      color_discrete_map=color_map,
-      )
+    fig_2 = px.box(df_selection, x="cluster", y="prio_score", color="cluster",
+                notched=True, # used notched shape
+                title="Boxplot Cluster Temuan Kerentanan",
+                color_discrete_map=color_map
+                # hover_data=["day"] # add day column to hover data
+                )
     fig_2.update_layout(
       title='Boxplot Cluster Temuan Kerentanan',
-      title_x=0.33,  # Horizontal center
-      title_y=0.95,    # Top
-      legend=dict(
-        x=1, 
-        y=1.15, 
-        traceorder='normal', 
-        orientation='v'
-        )
+      title_x=0.3,  # Horizontal center
+      title_y=0.95    # Top
       )
-    fig_2.update_xaxes(title_text='Cluster')
+    fig_2.update_xaxes(title_text='Cluster', tickvals=[0, 1, 2, 3])
     fig_2.update_yaxes(title_text='Priority Score (0-100)')
-
-    viz_2.plotly_chart(fig_2)
+    st.plotly_chart(fig_2)
 
     # Table Output
     with st.expander('Output details:'):
