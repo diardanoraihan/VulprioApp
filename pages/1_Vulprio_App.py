@@ -273,7 +273,6 @@ if (runApp or st.session_state['run_app']):
     ).reset_index(drop=True)
     
     # Numeric Metric Visualization
-
     # Univariate Kmeans Clustering Visualization
     color_map = {'0': 'brown', '1': 'green', '2': 'blue', '3': 'orange'}
     fig_1 = px.scatter(
@@ -281,8 +280,8 @@ if (runApp or st.session_state['run_app']):
       x='prio_score',
       y=np.zeros(df_selection.shape[0]),
       color = 'cluster',
-      color_discrete_map=color_map
-      # hover_data=['cluster', 'host', 'cve_id', 'prio_score', 'risk_score', 'asset_score'],
+      color_discrete_map=color_map,
+      custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
       )
     fig_1.update_layout(
       title='Cluster Temuan Kerentanan berdasarkan Skor Prioritas',
@@ -302,9 +301,14 @@ if (runApp or st.session_state['run_app']):
           width=1
           )
         ),
-      customdata =np.stack((df_selection['host'], df_selection['cluster']), axis=-1),
-      hovertemplate='Host: %{custom_data[0]}<br>Host: %{host}<br>CVE ID: {cve_id}<br>Prio Score: {prio_score}<br>Risk Score: {risk_score}<br>Asset Score: {asset_score}'
-      )
+      hovertemplate="<br>".join([
+        "Cluster: %{customdata[0]}",
+        "Host: %{customdata[1]}",
+        "CVE ID: %{customdata[2]}",
+        "Priority Score: %{x:.1f}",
+        "Risk Score: %{customdata[3]:.1f}",
+        "Asset Score: %{customdata[4]:.1f}"])
+    )
     fig_1.update_xaxes(title_text='Priority Score (0-100)')
     fig_1.update_yaxes(title_text='Temuan Kerentanan', showticklabels = False)
     st.plotly_chart(fig_1)
@@ -312,14 +316,23 @@ if (runApp or st.session_state['run_app']):
     fig_2 = px.box(df_selection, x="cluster", y="prio_score", color="cluster",
                 notched=True, # used notched shape
                 title="Boxplot Cluster Temuan Kerentanan",
-                color_discrete_map=color_map
-                # hover_data=["day"] # add day column to hover data
+                color_discrete_map=color_map,
+                custom_data=[(df_selection['cluster']), (df_selection['host']), (df_selection['cve_id']), (df_selection['risk_score']), (df_selection['asset_score'])]
                 )
     fig_2.update_layout(
       title='Boxplot Cluster Temuan Kerentanan',
       title_x=0.3,  # Horizontal center
-      title_y=0.95    # Top
+      title_y=0.95  # Top
       )
+    fig_2.update_traces(
+      hovertemplate="<br>".join([
+        "Cluster: %{customdata[0]}",
+        "Host: %{customdata[1]}",
+        "CVE ID: %{customdata[2]}",
+        "Priority Score: %{x:.1f}",
+        "Risk Score: %{customdata[3]:.1f}",
+        "Asset Score: %{customdata[4]:.1f}"])
+    )
     fig_2.update_xaxes(title_text='Cluster', tickvals=[0, 1, 2, 3])
     fig_2.update_yaxes(title_text='Priority Score (0-100)')
     st.plotly_chart(fig_2)
@@ -330,7 +343,7 @@ if (runApp or st.session_state['run_app']):
     
     st.markdown("## Rekomendasi")
     cluster_prio = df_result_stat[df_result_stat['rank'] == 1]['cluster'].to_list()[0]
-    st.warning(f":warning: :warning: Berdasarkan hasil analisis, kami merekomendasikan untuk melakukan perbaikan segera pada hasil temuan kerentanan di cluster {cluster_prio} :warning: :warning:")
+    st.warning(f":warning: :warning: Berdasarkan hasil analisis, kami merekomendasikan untuk melakukan perbaikan segera pada hasil temuan kerentanan di CLUSTER {cluster_prio} :warning: :warning:")
   else:
     st.error(':warning: Tidak ada input data')
 
